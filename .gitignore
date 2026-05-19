@@ -1,0 +1,32 @@
+# Environment and secrets — NEVER commit these
+.env
+.env.*
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Pytest cache
+.pytest_cache/
+.coverage
+htmlcov/
+
+# macOS system files
+.DS_Store
+.AppleDouble
+
+# Temporary cloned repos (created at runtime)
+/tmp/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
