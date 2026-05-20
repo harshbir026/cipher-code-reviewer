@@ -4,9 +4,11 @@ Handles GitHub URL validation and shallow repository cloning
 into ephemeral temporary directories.
 """
 
+import json
 import logging
 import re
 import tempfile
+import urllib.request
 
 from git import Repo
 from git.exc import GitCommandError
@@ -85,3 +87,26 @@ class RepositoryIngestor:
         except Exception as e:
             temp_dir.cleanup()
             raise RuntimeError(f"Unexpected error during clone: {str(e)}")
+
+    def check_repo_size(self) -> dict:
+        """
+        Fetches repo metadata before cloning via GitHub API.
+        Returns size, stars, language, description.
+        """
+        try:
+            parts = self.repo_url.replace("https://github.com/", "").replace(".git", "")
+            api_url = f"https://api.github.com/repos/{parts}"
+            req = urllib.request.Request(
+                api_url, headers={"User-Agent": "cipher-code-reviewer"}
+            )
+            with urllib.request.urlopen(req, timeout=5) as response:
+                data = json.loads(response.read())
+                return {
+                    "size_kb": data.get("size", 0),
+                    "stars": data.get("stargazers_count", 0),
+                    "language": data.get("language", "Unknown"),
+                    "description": data.get("description", ""),
+                    "default_branch": data.get("default_branch", "main"),
+                }
+        except Exception:
+            return {}

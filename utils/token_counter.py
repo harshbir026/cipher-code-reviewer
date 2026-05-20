@@ -13,8 +13,8 @@ logger = logging.getLogger(__name__)
 ENCODING = tiktoken.get_encoding("cl100k_base")
 
 # Leave headroom for system prompt (~500 tokens) and response (~1000 tokens)
-# gpt-4o-mini has a 128k context window; we batch at 6000 tokens for safety
-MAX_TOKENS_PER_BATCH = 6000
+# gpt-4o-mini has a 128k context window; we batch at 3000 tokens for safety
+MAX_TOKENS_PER_BATCH = 3000
 
 
 def count_tokens(text: str) -> int:

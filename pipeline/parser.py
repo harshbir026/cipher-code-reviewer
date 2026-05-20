@@ -141,3 +141,41 @@ class ASTParser:
         )
 
         return extracted_blocks
+
+
+def build_call_graph(repo_path: str) -> dict[str, list[str]]:
+    """
+    Builds a simple call graph: maps each function name
+    to the list of functions it calls.
+    Used to provide cross-file context to the LLM.
+    """
+    call_graph = {}
+
+    for root, dirs, files in os.walk(repo_path):
+        dirs[:] = [
+            d
+            for d in dirs
+            if not d.startswith(".") and d not in {"venv", "__pycache__"}
+        ]
+        for file in files:
+            if not file.endswith(".py"):
+                continue
+            file_path = os.path.join(root, file)
+            try:
+                with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+                    source = f.read()
+                tree = ast.parse(source)
+                for node in ast.walk(tree):
+                    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        calls = []
+                        for child in ast.walk(node):
+                            if isinstance(child, ast.Call):
+                                if isinstance(child.func, ast.Name):
+                                    calls.append(child.func.id)
+                                elif isinstance(child.func, ast.Attribute):
+                                    calls.append(child.func.attr)
+                        call_graph[node.name] = calls
+            except Exception:
+                continue
+
+    return call_graph

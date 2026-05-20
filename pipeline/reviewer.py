@@ -159,7 +159,7 @@ class LLMReviewer:
                     ],
                     response_format=CodeReviewReport,
                     temperature=0.2,  # Low temp = analytical consistency
-                    max_tokens=2000,
+                    max_tokens=4000,
                 )
                 return response.choices[0].message.parsed
 
@@ -202,3 +202,36 @@ class LLMReviewer:
                 progress_callback(i + 1, len(batches))
 
         return all_reviews
+
+    def compute_health_score(reviews: list[ReviewComment]) -> dict:
+        """
+        Computes an overall repository health score from 0-100.
+        Weighted by severity and confidence.
+        """
+        if not reviews:
+            return {"score": 100, "grade": "A", "summary": "No issues detected."}
+
+        severity_weights = {"Critical": 25, "High": 10, "Medium": 4, "Low": 1}
+        penalty = 0
+
+        for review in reviews:
+            weight = severity_weights.get(review.severity, 1)
+            # High confidence findings penalize more
+            confidence_multiplier = review.confidence_score / 100
+            penalty += weight * confidence_multiplier
+
+        # Normalize to 0-100
+        score = max(0, 100 - min(penalty, 100))
+
+        if score >= 90:
+            grade, color = "A", "#22C55E"
+        elif score >= 75:
+            grade, color = "B", "#84CC16"
+        elif score >= 60:
+            grade, color = "C", "#F5A623"
+        elif score >= 40:
+            grade, color = "D", "#F97316"
+        else:
+            grade, color = "F", "#EF4444"
+
+        return {"score": round(score), "grade": grade, "color": color}

@@ -10,7 +10,7 @@ import streamlit as st
 
 from pipeline.ingestion import RepositoryIngestor
 from pipeline.parser import ASTParser
-from pipeline.reviewer import LLMReviewer
+from pipeline.reviewer import LLMReviewer, compute_health_score
 from utils.token_counter import batch_code_blocks
 
 logging.basicConfig(
@@ -23,6 +23,8 @@ if "all_reviews" not in st.session_state:
     st.session_state.all_reviews = []
 if "analysis_run" not in st.session_state:
     st.session_state.analysis_run = False
+if "history" not in st.session_state:
+    st.session_state.history = []
 
 st.set_page_config(
     page_title="CIPHER // Code Intelligence",
@@ -357,6 +359,358 @@ def confidence_bar(score: int) -> str:
     )
 
 
+def render_premium_health_score(health, all_reviews):
+    """
+    Renders a Vercel-style health score card with an animated SVG radial gauge,
+    perfectly aligned with the CIPHER Terminal aesthetic (Syne & IBM Plex Mono).
+    """
+    total_findings = len(all_reviews)
+    high_priority = [r for r in all_reviews if r.severity in ["Critical", "High"]]
+    high_priority_count = len(high_priority)
+
+    score = health["score"]
+    color = health["color"]
+    grade = health["grade"]
+
+    # Math for SVG Radial Progress
+    circumference = 251.2
+    stroke_dashoffset = circumference - (score / 100) * circumference
+
+    # Pulse effect for critical issues
+    pulse_css = (
+        "animation: pulse-border 2s infinite;" if high_priority_count > 0 else ""
+    )
+    pulse_color = "#EF4444" if high_priority_count > 0 else color
+
+    st.markdown(
+        f"""
+    <style>
+        :root {{
+            --health: {color};
+            --text-main: #E8E8E8;
+            --text-muted: #666666;
+            --card-bg: #0D0D0D;
+            --card-border: #1E1E1E;
+        }}
+
+        @keyframes pulse-border {{
+            0% {{ box-shadow: 0 0 0 0 {pulse_color}40; }}
+            70% {{ box-shadow: 0 0 0 6px {pulse_color}00; }}
+            100% {{ box-shadow: 0 0 0 0 {pulse_color}00; }}
+        }}
+
+        @keyframes dash {{
+            to {{ stroke-dashoffset: {stroke_dashoffset}; }}
+        }}
+
+        .cipher-health-card {{
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-left: 3px solid var(--health);
+            border-radius: 2px;
+            padding: 24px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }}
+
+        .cipher-health-card:hover {{
+            border-color: #2A2A2A;
+            border-left-color: var(--health);
+            background: #111111;
+        }}
+
+        .gauge-container {{
+            position: relative;
+            width: 100px;
+            height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }}
+
+        .gauge-svg {{
+            transform: rotate(-90deg);
+            width: 100px;
+            height: 100px;
+        }}
+
+        .gauge-bg {{
+            fill: none;
+            stroke: var(--card-border);
+            stroke-width: 8;
+        }}
+
+        .gauge-progress {{
+            fill: none;
+            stroke: var(--health);
+            stroke-width: 8;
+            stroke-linecap: round;
+            stroke-dasharray: {circumference};
+            stroke-dashoffset: {circumference};
+            animation: dash 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            filter: drop-shadow(0 0 6px var(--health));
+        }}
+
+        .gauge-text {{
+            position: absolute;
+            font-family: 'Syne', sans-serif;
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--text-main);
+            letter-spacing: -1px;
+        }}
+
+        .content-container {{
+            flex: 1;
+            margin-left: 32px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }}
+
+        .title {{
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            font-weight: 600;
+        }}
+
+        .description {{
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 13px;
+            color: #AAAAAA;
+            line-height: 1.6;
+            max-width: 450px;
+            margin-top: 4px;
+        }}
+
+        .metrics-row {{
+            display: flex;
+            gap: 20px;
+            margin-top: 16px;
+        }}
+
+        .metric-pill {{
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #151515;
+            border: 1px solid var(--card-border);
+            padding: 6px 12px;
+            border-radius: 2px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 11px;
+            color: #CCCCCC;
+        }}
+
+        .dot-critical {{
+            height: 8px;
+            width: 8px;
+            background-color: #EF4444;
+            border-radius: 50%;
+            {pulse_css}
+        }}
+
+        .dot-neutral {{
+            height: 8px;
+            width: 8px;
+            background-color: #F5A623;
+            border-radius: 50%;
+        }}
+
+        .grade-badge {{
+            font-family: 'Syne', sans-serif;
+            font-size: 80px;
+            font-weight: 800;
+            color: var(--health);
+            line-height: 1;
+            opacity: 0.05;
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            pointer-events: none;
+            user-select: none;
+        }}
+    </style>
+
+    <div class="cipher-health-card">
+        <div class="grade-badge">{grade}</div>
+        <div class="gauge-container">
+            <svg class="gauge-svg">
+                <circle class="gauge-bg" cx="50" cy="50" r="40"></circle>
+                <circle class="gauge-progress" cx="50" cy="50" r="40"></circle>
+            </svg>
+            <div class="gauge-text">{score}</div>
+        </div>
+
+        <div class="content-container">
+            <div class="title">Codebase Integrity</div>
+            <div class="description">
+                AI evaluation complete. Syntax trees parsed and analyzed for security, performance, and architectural risks.
+            </div>
+            <div class="metrics-row">
+                <div class="metric-pill">
+                    <div class="dot-neutral"></div>
+                    <span><b style="color: #F5A623;">{total_findings}</b> FINDINGS</span>
+                </div>
+                <div class="metric-pill" style="border-color: {'rgba(239, 68, 68, 0.4)' if high_priority_count > 0 else '#1E1E1E'};">
+                    <div class="{'dot-critical' if high_priority_count > 0 else 'dot-neutral'}" style="background-color: {'#EF4444' if high_priority_count > 0 else '#22C55E'};"></div>
+                    <span><b style="color: {'#EF4444' if high_priority_count > 0 else '#22C55E'};">{high_priority_count}</b> HIGH PRIORITY</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_repo_metadata_card(meta: dict):
+    """
+    Renders a premium metadata card for the targeted GitHub repository.
+    Aligns with the CIPHER Terminal aesthetic.
+    """
+    # Safely extract values with fallbacks
+    lang = meta.get("language", "Unknown")
+    stars = meta.get("stars", 0)
+    size = meta.get("size_kb", 0)
+    branch = meta.get("default_branch", "main")
+    desc = meta.get("description", "")
+
+    # Handle numeric formatting safely
+    formatted_stars = f"{stars:,}" if isinstance(stars, int) else stars
+    formatted_size = f"{size:,} KB" if isinstance(size, int) else f"{size} KB"
+
+    st.markdown(
+        f"""
+    <style>
+        /* Pulse animation for the live connection dot */
+        @keyframes pulse-green {{
+            0% {{ box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }}
+            70% {{ box-shadow: 0 0 0 4px rgba(34, 197, 94, 0); }}
+            100% {{ box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }}
+        }}
+
+        .cipher-repo-card {{
+            background: #0D0D0D;
+            border: 1px solid #1E1E1E;
+            border-left: 3px solid #1E1E1E; /* Starts subtle, transitions on hover */
+            border-radius: 2px;
+            padding: 20px 24px;
+            margin-bottom: 24px;
+            transition: all 0.3s ease;
+        }}
+
+        .cipher-repo-card:hover {{
+            border-color: #2A2A2A;
+            border-left-color: #F5A623;
+            background: #111111;
+        }}
+
+        .repo-header {{
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 16px;
+        }}
+
+        .live-dot {{
+            width: 6px;
+            height: 6px;
+            background-color: #22C55E;
+            border-radius: 50%;
+            animation: pulse-green 2s infinite;
+        }}
+
+        .repo-title {{
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 11px;
+            color: #888;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            font-weight: 600;
+        }}
+
+        .repo-grid {{
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }}
+
+        .repo-metric {{
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }}
+
+        .metric-lbl {{
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 10px;
+            color: #555;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }}
+
+        .metric-val {{
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 12px;
+            color: #E8E8E8;
+        }}
+
+        .metric-val.highlight {{
+            color: #F5A623;
+            font-weight: 600;
+        }}
+
+        .repo-desc {{
+            margin-top: 16px;
+            padding-top: 12px;
+            border-top: 1px dashed #1E1E1E;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 11px;
+            color: #666;
+            line-height: 1.5;
+        }}
+    </style>
+
+    <div class="cipher-repo-card">
+        <div class="repo-header">
+            <div class="live-dot"></div>
+            <div class="repo-title">Target Lock // Metadata</div>
+        </div>
+        <div class="repo-grid">
+            <div class="repo-metric">
+                <span class="metric-lbl">Language</span>
+                <span class="metric-val">{lang}</span>
+            </div>
+            <div class="repo-metric">
+                <span class="metric-lbl">Stars</span>
+                <span class="metric-val highlight">★ {formatted_stars}</span>
+            </div>
+            <div class="repo-metric">
+                <span class="metric-lbl">Size</span>
+                <span class="metric-val">{formatted_size}</span>
+            </div>
+            <div class="repo-metric">
+                <span class="metric-lbl">Branch</span>
+                <span class="metric-val">{branch}</span>
+            </div>
+        </div>
+        {f'<div class="repo-desc">{desc}</div>' if desc else ''}
+    </div>
+    """,
+        unsafe_allow_html=True,
+    )
+
+
 # ── Sidebar ─────────────────────────────────────────────────────────────────────
 
 with st.sidebar:
@@ -425,6 +779,21 @@ with st.sidebar:
 
     st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
     show_low_confidence = st.toggle("Show low confidence flags", value=True)
+
+    st.markdown("<div style='height:20px;'></div>", unsafe_allow_html=True)
+
+    if st.session_state.history:
+        st.markdown(
+            "<div class='cipher-header'>Scan History</div>",
+            unsafe_allow_html=True,
+        )
+        for h in reversed(st.session_state.history[-5:]):
+            st.markdown(
+                f"<div class='cipher-mono'>{h['timestamp']} · {h['findings']} flags</div>"
+                f"<div style='font-family:\"IBM Plex Mono\",monospace;font-size:10px;"
+                f"color:#333;margin-bottom:8px;'>{h['repo'].split('/')[-1]}</div>",
+                unsafe_allow_html=True,
+            )
 
     st.markdown("<div style='height:40px;'></div>", unsafe_allow_html=True)
     st.markdown(
@@ -514,6 +883,19 @@ with col_btn:
         disabled=not repo_url,
         use_container_width=True,
     )
+# Show repo info card if URL is valid
+if repo_url and repo_url.startswith("https://github.com/"):
+    try:
+        ingestor_preview = RepositoryIngestor(repo_url)
+        meta = ingestor_preview.check_repo_size()
+
+        if meta:
+            render_repo_metadata_card(meta)
+
+    except Exception:
+        # Silently fail the preview if the repo doesn't exist,
+        # allowing the main execution block to handle the actual error later.
+        pass
 
 st.markdown(
     "<div style='border-top:1px solid #1A1A1A;margin:16px 0 24px 0;'></div>",
@@ -578,6 +960,16 @@ if run_button and repo_url:
             all_reviews = reviewer.analyze_all_batches(batches, update_progress)
             st.session_state.all_reviews = all_reviews
             st.session_state.analysis_run = True
+            st.session_state.history.append(
+                {
+                    "repo": repo_url,
+                    "findings": len(all_reviews),
+                    "critical": len(
+                        [r for r in all_reviews if r.severity == "Critical"]
+                    ),
+                    "timestamp": pd.Timestamp.now().strftime("%H:%M:%S"),
+                }
+            )
         except RuntimeError as e:
             s3.update(label="03 // INFERENCE FAILED ✗", state="error")
             st.error(str(e))
@@ -635,6 +1027,43 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# ── Health Score ───────────────────────────────────────────────────────────────
+health = compute_health_score(all_reviews)
+render_premium_health_score(health, all_reviews)
+
+# ── Charts Row ────────────────────────────────────────────────────────────────
+
+if not df.empty:
+    chart_left, chart_right = st.columns(2)
+
+    with chart_left:
+        st.markdown(
+            "<div class='cipher-header' style='margin-bottom:12px;'>Issues by File</div>",
+            unsafe_allow_html=True,
+        )
+        file_counts = (
+            df.groupby("file_path")
+            .size()
+            .reset_index(name="count")
+            .sort_values("count", ascending=False)
+            .head(10)
+        )
+        st.bar_chart(file_counts.set_index("file_path")["count"])
+
+    with chart_right:
+        st.markdown(
+            "<div class='cipher-header' style='margin-bottom:12px;'>Severity Breakdown</div>",
+            unsafe_allow_html=True,
+        )
+        severity_counts = df["severity"].value_counts().reset_index()
+        severity_counts.columns = ["severity", "count"]
+        st.bar_chart(severity_counts.set_index("severity")["count"])
+
+st.markdown(
+    "<div style='border-top:1px solid #1A1A1A;margin:20px 0;'></div>",
+    unsafe_allow_html=True,
+)
+
 # ── Split Layout ───────────────────────────────────────────────────────────────
 
 left, right = st.columns([6, 4], gap="large")
@@ -659,7 +1088,6 @@ with left:
         )
     else:
         for _, row in high_conf_df.iterrows():
-            sev = row["severity"].lower()
             badge = severity_badge(row["severity"])
             bar = confidence_bar(row["confidence_score"])
 
@@ -675,7 +1103,10 @@ with left:
                     f"{bar}",
                     unsafe_allow_html=True,
                 )
-                st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+                st.markdown(
+                    "<div style='height:10px;'></div>",
+                    unsafe_allow_html=True,
+                )
                 st.markdown(
                     f"<div style='font-family:\"IBM Plex Mono\",monospace;font-size:12px;"
                     f"color:#CCC;line-height:1.7;'>{row['comment']}</div>",
@@ -715,14 +1146,16 @@ with right:
                 f"padding:12px 16px;margin-bottom:8px;'>"
                 f"<div style='font-family:\"IBM Plex Mono\",monospace;font-size:11px;"
                 f"color:#888;margin-bottom:6px;'>"
-                f"{row['file_path']} → <span style='color:#CCC;'>{row['function_name']}</span>"
+                f"{row['file_path']} → "
+                f"<span style='color:#CCC;'>{row['function_name']}</span>"
                 f"</div>"
                 f"<div>{badge}&nbsp;&nbsp;"
                 f"<span style='font-family:\"IBM Plex Mono\",monospace;font-size:10px;"
                 f"color:#555;'>{row['confidence_score']}% confidence</span></div>"
                 f"{bar}"
                 f"<div style='font-family:\"IBM Plex Mono\",monospace;font-size:11px;"
-                f"color:#666;margin-top:8px;line-height:1.6;'>{row['comment'][:160]}..."
+                f"color:#666;margin-top:8px;line-height:1.6;'>"
+                f"{str(row['comment'])[:160]}..."
                 f"</div>"
                 f"</div>",
                 unsafe_allow_html=True,
