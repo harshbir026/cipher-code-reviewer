@@ -6,6 +6,7 @@ into ephemeral temporary directories.
 
 import json
 import logging
+import os  # <-- ADDED THIS IMPORT
 import re
 import tempfile
 import urllib.request
@@ -96,9 +97,15 @@ class RepositoryIngestor:
         try:
             parts = self.repo_url.replace("https://github.com/", "").replace(".git", "")
             api_url = f"https://api.github.com/repos/{parts}"
-            req = urllib.request.Request(
-                api_url, headers={"User-Agent": "cipher-code-reviewer"}
-            )
+
+            headers = {"User-Agent": "cipher-code-reviewer"}
+
+            # --> NEW: Inject GitHub Token if available to prevent cloud rate-limiting
+            github_token = os.getenv("GITHUB_TOKEN")
+            if github_token:
+                headers["Authorization"] = f"token {github_token}"
+
+            req = urllib.request.Request(api_url, headers=headers)
             with urllib.request.urlopen(req, timeout=5) as response:
                 data = json.loads(response.read())
                 return {
@@ -108,5 +115,6 @@ class RepositoryIngestor:
                     "description": data.get("description", ""),
                     "default_branch": data.get("default_branch", "main"),
                 }
-        except Exception:
+        except Exception as e:
+            logger.error(f"GitHub Metadata API failed: {e}")
             return {}
