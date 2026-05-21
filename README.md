@@ -149,6 +149,22 @@ cipher-code-reviewer/
 
 ---
 
+## How CIPHER Compares
+
+| Feature | CIPHER | SonarQube | CodeClimate | GitHub Copilot |
+|---|---|---|---|---|
+| AST-based parsing | ✅ | ✅ | ✅ | ✅ |
+| LLM-powered analysis | ✅ | ❌ | ❌ | ✅ |
+| Confidence scoring | ✅ | ❌ | ❌ | ❌ |
+| Cross-file call graph | ✅ | ✅ | ✅ | ✅ |
+| CWE classification | ✅ | ✅ | ✅ | ❌ |
+| False positive feedback | ✅ | ❌ | ❌ | ❌ |
+| Inline diff view | ✅ | ❌ | ✅ | ✅ |
+| REST API | ✅ | ✅ | ✅ | ❌ |
+| Real-world impact explainer | ✅ | ❌ | ❌ | ❌ |
+| Zero setup deployment | ✅ | ❌ | ❌ | ❌ |
+| Open source | ✅ | ✅ | ❌ | ❌ |
+
 ## What I Would Build Next
 
 - **Diff-aware analysis** — Only review functions changed in the latest commit, not the entire codebase

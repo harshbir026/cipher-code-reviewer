@@ -9,8 +9,8 @@ import pandas as pd
 import streamlit as st
 
 from pipeline.ingestion import RepositoryIngestor
-from pipeline.parser import ASTParser
-from pipeline.reviewer import LLMReviewer, compute_health_score
+from pipeline.parser import ASTParser, build_call_graph
+from pipeline.reviewer import LLMReviewer, classify_cwe, compute_health_score
 from utils.token_counter import batch_code_blocks
 
 logging.basicConfig(
@@ -25,6 +25,8 @@ if "analysis_run" not in st.session_state:
     st.session_state.analysis_run = False
 if "history" not in st.session_state:
     st.session_state.history = []
+if "feedback" not in st.session_state:
+    st.session_state.feedback = {}
 
 st.set_page_config(
     page_title="CIPHER // Code Intelligence",
@@ -923,6 +925,7 @@ if run_button and repo_url:
     # Step 2 — Parse
     with st.status("02 // AST PARSING", expanded=True) as s2:
         code_blocks = ASTParser.extract_code_blocks(temp_dir.name)
+        call_graph = build_call_graph(temp_dir.name)
         temp_dir.cleanup()
         if not code_blocks:
             s2.update(label="02 // NO PYTHON BLOCKS FOUND ✗", state="error")
@@ -957,7 +960,9 @@ if run_button and repo_url:
             )
 
         try:
-            all_reviews = reviewer.analyze_all_batches(batches, update_progress)
+            all_reviews = reviewer.analyze_all_batches(
+                batches, call_graph, update_progress
+            )
             st.session_state.all_reviews = all_reviews
             st.session_state.analysis_run = True
             st.session_state.history.append(
@@ -1028,8 +1033,30 @@ st.markdown(
 )
 
 # ── Health Score ───────────────────────────────────────────────────────────────
-health = compute_health_score(all_reviews)
+health = compute_health_score(
+    all_reviews, feedback=st.session_state.get("feedback", {})
+)
 render_premium_health_score(health, all_reviews)
+# Trend indicator
+if len(st.session_state.history) >= 2:
+    last = st.session_state.history[-1]
+    prev = st.session_state.history[-2]
+    if last["repo"] == prev["repo"]:
+        delta = prev["findings"] - last["findings"]
+        trend_color = "#22C55E" if delta > 0 else "#EF4444" if delta < 0 else "#F5A623"
+        trend_symbol = "↓" if delta > 0 else "↑" if delta < 0 else "→"
+        trend_text = (
+            "improving" if delta > 0 else "degrading" if delta < 0 else "stable"
+        )
+        st.markdown(
+            f"<div style='font-family:\"IBM Plex Mono\",monospace;"
+            f"font-size:11px;color:{trend_color};margin-bottom:16px;'>"
+            f"{trend_symbol} Codebase trending {trend_text} "
+            f"({abs(delta)} findings "
+            f"{'fewer' if delta > 0 else 'more'} than last scan)"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
 
 # ── Charts Row ────────────────────────────────────────────────────────────────
 
@@ -1095,18 +1122,42 @@ with left:
                 f"[{row['issue_category'].upper()}] {row['file_path']} → {row['function_name']}",
                 expanded=False,
             ):
+                cwe = classify_cwe(row["comment"])
+                cwe_badge = ""
+                if cwe:
+                    cwe_id, cwe_url = cwe
+                    cwe_badge = (
+                        f"&nbsp;&nbsp;<a href='{cwe_url}' target='_blank' "
+                        f'style=\'font-family:"IBM Plex Mono",monospace;'
+                        f"font-size:10px;color:#818CF8;text-decoration:none;"
+                        f"border:1px solid rgba(99,102,241,0.4);padding:2px 8px;"
+                        f"border-radius:2px;'>⚑ {cwe_id}</a>"
+                    )
                 st.markdown(
                     f"{badge}"
-                    f"&nbsp;&nbsp;<span style='font-family:\"IBM Plex Mono\",monospace;"
-                    f"font-size:11px;color:#555;'>line {row['line_number']} &nbsp;·&nbsp; "
+                    f"&nbsp;&nbsp;<span style='font-family:\"IBM Plex Mono\","
+                    f"monospace;font-size:11px;color:#555;'>"
+                    f"line {row['line_number']} &nbsp;·&nbsp; "
                     f"confidence {row['confidence_score']}%</span>"
+                    f"{cwe_badge}"
                     f"{bar}",
                     unsafe_allow_html=True,
                 )
+
                 st.markdown(
                     "<div style='height:10px;'></div>",
                     unsafe_allow_html=True,
                 )
+                if row.get("impact", "").strip():
+                    st.markdown(
+                        f"<div style='background:rgba(245,166,35,0.06);"
+                        f"border-left:2px solid #F5A623;padding:8px 12px;"
+                        f"margin-bottom:12px;font-family:\"IBM Plex Mono\","
+                        f"monospace;font-size:11px;color:#F5A623;'>"
+                        f"⚠ {row['impact']}"
+                        f"</div>",
+                        unsafe_allow_html=True,
+                    )
                 st.markdown(
                     f"<div style='font-family:\"IBM Plex Mono\",monospace;font-size:12px;"
                     f"color:#CCC;line-height:1.7;'>{row['comment']}</div>",
@@ -1116,10 +1167,59 @@ with left:
                     st.markdown(
                         '<div style=\'font-family:"IBM Plex Mono",monospace;'
                         "font-size:10px;color:#F5A623;letter-spacing:0.1em;"
-                        "margin:14px 0 6px 0;'>SUGGESTED FIX</div>",
+                        "margin:14px 0 6px 0;'>DIFF VIEW</div>",
                         unsafe_allow_html=True,
                     )
-                    st.code(row["suggested_fix"], language="python")
+                    diff_left, diff_right = st.columns(2)
+                    with diff_left:
+                        st.markdown(
+                            '<div style=\'font-family:"IBM Plex Mono",monospace;'
+                            "font-size:9px;color:#EF4444;margin-bottom:4px;'>"
+                            "─ CURRENT</div>",
+                            unsafe_allow_html=True,
+                        )
+                        st.code(
+                            row.get("vulnerable_snippet", "// see file"),
+                            language="python",
+                        )
+                    with diff_right:
+                        st.markdown(
+                            '<div style=\'font-family:"IBM Plex Mono",monospace;'
+                            "font-size:9px;color:#22C55E;margin-bottom:4px;'>"
+                            "+ SUGGESTED FIX</div>",
+                            unsafe_allow_html=True,
+                        )
+                        st.code(row["suggested_fix"], language="python")
+                # Feedback buttons
+                st.markdown(
+                    "<div style='height:10px;'></div>",
+                    unsafe_allow_html=True,
+                )
+                finding_key = (
+                    f"{row['file_path']}_{row['function_name']}"
+                    f"_{row['line_number']}"
+                )
+                current = st.session_state.feedback.get(finding_key)
+                col_confirm, col_fp = st.columns(2)
+                with col_confirm:
+                    if st.button(
+                        "✓ Confirmed" if current == "confirmed" else "Confirm Issue",
+                        key=f"confirm_{finding_key}",
+                        type="primary" if current == "confirmed" else "secondary",
+                        use_container_width=True,
+                    ):
+                        st.session_state.feedback[finding_key] = "confirmed"
+                        st.rerun()
+                with col_fp:
+                    if st.button(
+                        "✗ False Positive"
+                        if current == "false_positive"
+                        else "Mark False Positive",
+                        key=f"fp_{finding_key}",
+                        use_container_width=True,
+                    ):
+                        st.session_state.feedback[finding_key] = "false_positive"
+                        st.rerun()
 
 with right:
     st.markdown(

@@ -10,3 +10,5 @@ ruff==0.4.4
 pre-commit==3.7.1
 tiktoken==0.7.0
 httpx==0.28.1
+fastapi==0.111.0
+uvicorn==0.30.1
