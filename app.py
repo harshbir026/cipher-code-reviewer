@@ -39,13 +39,17 @@ st.set_page_config(
 st.markdown(
     """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Syne:wght@400;600;700;800&display=swap');
-
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Syne:wght@400;600;700;800&display=swap');s
 /* ── Reset & Base ── */
 html, body, [class*="css"] {
     font-family: 'Syne', sans-serif !important;
     background-color: #080808 !important;
     color: #E8E8E8 !important;
+}
+.material-symbols-rounded,
+.material-icons,
+[data-testid="stIconMaterial"] {
+    font-family: "Material Symbols Rounded", "Material Icons", sans-serif !important;
 }
 
 /* ── Scanline overlay on entire app ── */

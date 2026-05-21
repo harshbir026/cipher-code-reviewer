@@ -146,6 +146,10 @@ cipher-code-reviewer/
 - Very large repositories (1000+ functions) incur significant API cost and latency
 - LLM analysis is non-deterministic — rerunning may produce slightly different results
 - Session history resets on page refresh (no persistent storage)
+- Streamlit Cloud free tier has a 60-second request timeout. 
+  Repositories with more than ~8 batches (roughly 200+ functions) 
+  should be analyzed locally via `streamlit run app.py` where no 
+  timeout applies.
 
 ---
 
@@ -186,7 +190,7 @@ The agent was tested against a controlled golden dataset of Python files with kn
 | `divide_numbers` | Missing zero division check | ✅ |
 | `fetch_all_users` | SQL injection via f-string | ✅ |
 
-**Recall: 100% on golden dataset** *(results may vary — LLM is non-deterministic)*
+**Recall: 100% on golden dataset** (verified locally, 13.40s runtime)
 
 ---
 

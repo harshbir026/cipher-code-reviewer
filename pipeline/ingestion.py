@@ -6,7 +6,7 @@ into ephemeral temporary directories.
 
 import json
 import logging
-import os  # <-- ADDED THIS IMPORT
+import os
 import re
 import tempfile
 import urllib.request
