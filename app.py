@@ -46,9 +46,12 @@ html, body, [class*="css"] {
     background-color: #080808 !important;
     color: #E8E8E8 !important;
 }
-.material-symbols-rounded,
-.material-icons,
-[data-testid="stIconMaterial"] {
+html body span.material-symbols-rounded,
+html body i.material-icons,
+html body [data-testid="stIconMaterial"],
+html body [data-testid="collapsedControl"] *,
+html body [data-testid="stSidebarCollapsedControl"] *,
+html body button[kind="header"] * {
     font-family: "Material Symbols Rounded", "Material Icons", sans-serif !important;
 }
 
