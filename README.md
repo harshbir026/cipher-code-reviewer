@@ -120,6 +120,7 @@ streamlit run app.py
 
 ## Project Structure
 
+```
 cipher-code-reviewer/
 ├── .streamlit/             # App configuration & theme
 ├── pipeline/               # Core AI logic (Modularity)
@@ -138,6 +139,7 @@ cipher-code-reviewer/
 ├── requirements.txt        # Dependency definitions
 ├── .gitignore              # Excludes secrets/venv/caches
 └── README.md               # Documentation
+```
 
 ---
 
