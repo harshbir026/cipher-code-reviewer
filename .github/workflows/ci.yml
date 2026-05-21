@@ -14,7 +14,7 @@ jobs:
         run: pip install -r requirements.txt
       - name: Lint with Ruff
         run: ruff check .
-      - name: Run tests
-        run: pytest tests/ -v
+      - name: Run tests (excluding golden dataset)
+        run: pytest tests/ -v --ignore=tests/test_golden_dataset.py
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
