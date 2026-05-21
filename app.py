@@ -4,6 +4,7 @@ Surgical Intelligence Terminal aesthetic.
 """
 
 import logging
+import time
 
 import pandas as pd
 import streamlit as st
@@ -971,6 +972,10 @@ if run_button and repo_url:
             # Skip already completed batches on rerun
             if i < st.session_state.completed_batches:
                 continue
+
+            # Yield to the Streamlit event loop to keep the WebSocket alive
+            time.sleep(0.1)
+
             try:
                 # Note: Assuming reviewer.analyze_batch() takes (batch, call_graph)
                 report = reviewer.analyze_batch(batch, call_graph)

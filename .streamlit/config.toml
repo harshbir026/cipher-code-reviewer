@@ -1,0 +1,10 @@
+[server]
+# Disables compression to prevent "Bad message format" packet corruption
+enableWebsocketCompression = false
+
+# Increases the payload limit for large AST code blocks
+maxMessageSize = 500
+
+[browser]
+# Forces the browser to send keep-alive pings
+gatherUsageStats = true
