@@ -13,6 +13,9 @@ confidence-rated review comments via a Streamlit dashboard.
 
 ---
 
+## 🎥 Demo Video
+[Watch the 2-minute walkthrough on Loom/YouTube](https://www.loom.com/share/0754787c1af0480ca7045993a172aab5)
+
 ## Architecture
 ┌─────────────────────────────────────────────────────────┐
 │                    CIPHER Pipeline                       │
@@ -150,6 +153,10 @@ cipher-code-reviewer/
   Repositories with more than ~8 batches (roughly 200+ functions) 
   should be analyzed locally via `streamlit run app.py` where no 
   timeout applies.
+- Scaling Limitation: For demonstration stability on the Free Tier, analysis is
+  currently capped at 8 batches (~200 functions). Large repository processing (>70 batches) is 
+  recommended to be run locally, where session timeouts do not apply, or handled via an asynchronous
+  task queue in a production deployment.
 
 ---
 
