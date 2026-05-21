@@ -18,7 +18,7 @@ confidence-rated review comments via a Streamlit dashboard.
 
 ## Architecture
 ┌─────────────────────────────────────────────────────────┐
-│                    CIPHER Pipeline                       │
+│                    CIPHER Pipeline                      |
 └─────────────────────────────────────────────────────────┘
 │
 ▼
