@@ -963,16 +963,15 @@ if run_button and repo_url:
             )
             batches = batches[:max_cloud_batches]
 
-        # Process batches incrementally — saves results after each batch
-        # so a Streamlit rerun doesn't lose completed work
+        # Initialize session state for incremental progress
         if "completed_reviews" not in st.session_state:
             st.session_state.completed_reviews = []
         if "completed_batches" not in st.session_state:
             st.session_state.completed_batches = 0
 
-        progress = st.progress(
-            st.session_state.completed_batches / len(batches) if len(batches) > 0 else 0
-        )
+        # Progress UI
+        total_batches = len(batches)
+        progress = st.progress(0)
         batch_txt = st.empty()
 
         for i, batch in enumerate(batches):
@@ -980,35 +979,38 @@ if run_button and repo_url:
             if i < st.session_state.completed_batches:
                 continue
 
-            # Yield to the Streamlit event loop to keep the WebSocket alive
+            # Yield to the Streamlit event loop to keep WebSocket alive
             time.sleep(0.1)
 
             try:
-                # Note: Assuming reviewer.analyze_batch() takes (batch, call_graph)
                 report = reviewer.analyze_batch(batch, call_graph)
                 st.session_state.completed_reviews.extend(report.reviews)
                 st.session_state.completed_batches = i + 1
             except Exception as e:
                 logger.error(f"Batch {i+1} failed: {e}")
-                # Optional: surface the error to the UI so it doesn't fail silently
                 st.error(f"Batch {i+1} failed: {e}")
 
-            progress.progress((i + 1) / len(batches))
+            # Calculate and Clamp Progress (Prevents StreamlitAPIException)
+            progress_ratio = ((i + 1) / total_batches) if total_batches > 0 else 0
+            progress_val = max(0.0, min(1.0, progress_ratio))
+            progress.progress(progress_val)
+
             batch_txt.markdown(
                 f'<span style=\'font-family:"IBM Plex Mono",monospace;'
                 f"font-size:11px;color:#666;'>"
-                f"batch {i+1:02d}/{len(batches):02d} &nbsp;·&nbsp; "
-                f"{int((i+1)/len(batches)*100)}% complete</span>",
+                f"batch {i+1:02d}/{total_batches:02d} &nbsp;·&nbsp; "
+                f"{int(progress_val*100)}% complete</span>",
                 unsafe_allow_html=True,
             )
 
+        # Finalize results
         all_reviews = st.session_state.completed_reviews
 
         # Reset session state trackers for the next repo scan
         st.session_state.completed_batches = 0
         st.session_state.completed_reviews = []
 
-        # Save to main state exactly like the old code
+        # Save to main state
         st.session_state.all_reviews = all_reviews
         st.session_state.analysis_run = True
         st.session_state.history.append(
@@ -1025,7 +1027,6 @@ if run_button and repo_url:
             label=f"03 // ANALYSIS COMPLETE ✓  [{len(all_reviews)} findings]",
             state="complete",
         )
-
 
 # ── Results ────────────────────────────────────────────────────────────────────
 
