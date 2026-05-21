@@ -12,7 +12,7 @@ confidence-rated review comments via a Streamlit dashboard.
 🔗 **Live Demo:** [https://cipher-code-reviewer.streamlit.app](https://cipher-code-reviewer.streamlit.app)
 
 ## 🎥 Demo Video
-[Watch the 2-minute walkthrough on Loom/YouTube](https://www.loom.com/share/0754787c1af0480ca7045993a172aab5)
+[Watch the 2-minute walkthrough on Loom](https://www.loom.com/share/0754787c1af0480ca7045993a172aab5)
 
 ---
 
