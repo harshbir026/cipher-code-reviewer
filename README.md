@@ -11,10 +11,10 @@ confidence-rated review comments via a Streamlit dashboard.
 
 🔗 **Live Demo:** [https://cipher-code-reviewer.streamlit.app](https://cipher-code-reviewer.streamlit.app)
 
----
-
 ## 🎥 Demo Video
 [Watch the 2-minute walkthrough on Loom/YouTube](https://www.loom.com/share/0754787c1af0480ca7045993a172aab5)
+
+---
 
 ## Architecture
 ┌─────────────────────────────────────────────────────────┐
@@ -123,16 +123,16 @@ streamlit run app.py
 cipher-code-reviewer/
 ├── .streamlit/             # App configuration & theme
 ├── pipeline/               # Core AI logic (Modularity)
-│   ├── ingestion.py        # Git cloning & meta-data
+│   ├── ingestion.py        # Git cloning & repository metadata
 │   ├── parser.py           # AST & Call graph extraction
-│   └── reviewer.py         # LLM orchestration
+│   └── reviewer.py         # LLM orchestration & structured outputs
 ├── tests/                  # Test suite
-│   └── golden_dataset/     # Known vulnerability tests
-├── utils/                  # Shared helpers
+│   └── golden_dataset/     # Known vulnerability validation
+├── utils/                  # Shared helper functions
 │   ├── github_api.py       # PR commenting integration
 │   ├── security.py         # Secret scrubbing logic
-│   └── token_counter.py    # Tiktoken batching
-├── submission_screenshots/ # Evidence for assignment
+│   └── token_counter.py    # Tiktoken batching logic
+├── submission_screenshots/ # Required assignment evidence
 ├── api.py                  # FastAPI headless endpoint
 ├── app.py                  # Streamlit dashboard entrypoint
 ├── requirements.txt        # Dependency definitions
