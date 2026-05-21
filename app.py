@@ -1147,7 +1147,7 @@ with left:
             unsafe_allow_html=True,
         )
     else:
-        for _, row in high_conf_df.iterrows():
+        for idx, row in high_conf_df.iterrows():
             badge = severity_badge(row["severity"])
             bar = confidence_bar(row["confidence_score"])
 
@@ -1229,7 +1229,7 @@ with left:
                     unsafe_allow_html=True,
                 )
                 finding_key = (
-                    f"{row['file_path']}_{row['function_name']}"
+                    f"finding_{idx}_{row['file_path']}_{row['function_name']}"
                     f"_{row['line_number']}"
                 )
                 current = st.session_state.feedback.get(finding_key)
@@ -1340,7 +1340,7 @@ with right:
         )
         max_comments = st.slider("Maximum comments to post", 1, 20, 5)
 
-        if st.button("📝 Post Comments to PR") and gh_repo:
+        if st.button("📝 Post Comments to PR", key="github_pr_submit_btn") and gh_repo:
             try:
                 from utils.github_api import GitHubReviewer
 
