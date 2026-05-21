@@ -11,30 +11,56 @@ confidence-rated review comments via a Streamlit dashboard.
 
 🔗 **Live Demo:** [https://cipher-code-reviewer.streamlit.app](https://cipher-code-reviewer.streamlit.app)
 
+---
+
 ## 🎥 Demo Video
 [Watch the 2-minute walkthrough on Loom/YouTube](https://www.loom.com/share/0754787c1af0480ca7045993a172aab5)
 
-## 📸 Visual Overview
-
-| Landing Page | Scanning Pipeline | Results Dashboard |
-| :--- | :--- | :--- |
-| ![Landing](submission_screenshots/Visual UI Overhaul (The "Premium SaaS" Look).png) | ![Pipeline](submission_screenshots/The Status Widgets.png) | ![Results](submission_screenshots/The Results Dashboard.png) |
-
----
-
 ## Architecture
-graph TD
-    A[User/Repo URL] -->|Input| B(Streamlit UI)
-    B --> C{Pipeline}
-    C --> D[Git Cloner]
-    D --> E[AST Parser]
-    E --> F[Token Batcher]
-    F --> G[LLM Reviewer]
-    G --> H[Result Bucketer]
-    H --> B
-    G -.-> I[GitHub PR Commenter]
-    style G fill:#f9f,stroke:#333,stroke-width:2px
-    style B fill:#bbf,stroke:#333,stroke-width:2px
+┌─────────────────────────────────────────────────────────┐
+│                    CIPHER Pipeline                       │
+└─────────────────────────────────────────────────────────┘
+│
+▼
+┌─────────────────┐     validates URL format
+│  URL Validator  │ ──► raises ValueError on bad inputs
+└────────┬────────┘
+│
+▼
+┌─────────────────┐     depth=1, no_tags=True
+│  Git Cloner     │ ──► tempfile.TemporaryDirectory (auto-cleanup)
+└────────┬────────┘
+│
+▼
+┌─────────────────┐     skips .git, venv, pycache
+│  AST Parser     │ ──► FunctionDef + ClassDef nodes only
+└────────┬────────┘     ast.get_source_segment()
+│
+▼
+┌─────────────────┐     tiktoken cl100k_base encoding
+│  Token Batcher  │ ──► max 6,000 tokens per batch
+└────────┬────────┘
+│
+▼
+┌─────────────────┐     secrets scrubbed before transmission
+│ Secret Scrubber │ ──► regex patterns for keys/tokens
+└────────┬────────┘
+│
+▼
+┌─────────────────┐     gpt-4o-mini + Pydantic structured outputs
+│  LLM Reviewer   │ ──► exponential backoff on rate limits
+└────────┬────────┘     model_validator clamps confidence [0,100]
+│
+▼
+┌─────────────────┐     confidence >= 80 → High Confidence
+│ Result Bucketer │ ──► confidence <  80 → Needs Verification
+└────────┬────────┘
+│
+▼
+┌─────────────────┐     filters, metrics, export, PR comments
+│  Streamlit UI   │
+└─────────────────┘
+
 ---
 
 ## Features
@@ -95,26 +121,23 @@ streamlit run app.py
 ## Project Structure
 
 cipher-code-reviewer/
-├── .streamlit/               # App configuration & theme
-├── pipeline/                 # Core AI logic (Modularity)
-│   ├── ingestion.py          # Git cloning/metadata
-│   ├── parser.py             # AST & Call graph extraction
-│   └── reviewer.py           # LLM orchestration & structured outputs
-├── tests/                    # Testing suite (Reliability)
-│   ├── test_ingestion.py
-│   ├── test_parser.py
-│   └── golden_dataset/       # Validation logic
-├── utils/                    # Shared helper functions
-│   ├── github_api.py         # PR comments / GitHub integration
-│   ├── security.py           # Secret scrubbing logic
-│   └── token_counter.py      # Token counting logic
-├── submission_screenshots/   # Evidence for your assignment
-├── api.py                    # FastAPI headless endpoint
-├── app.py                    # Streamlit dashboard entry point
-├── requirements.txt          # Explicit dependency versions
-├── .gitignore                # Excludes secrets/venv/caches
-├── .python-version           # Explicit Python 3.11 pinning
-└── README.md                 # Project documentation
+├── .streamlit/             # App configuration & theme
+├── pipeline/               # Core AI logic (Modularity)
+│   ├── ingestion.py        # Git cloning & meta-data
+│   ├── parser.py           # AST & Call graph extraction
+│   └── reviewer.py         # LLM orchestration
+├── tests/                  # Test suite
+│   └── golden_dataset/     # Known vulnerability tests
+├── utils/                  # Shared helpers
+│   ├── github_api.py       # PR commenting integration
+│   ├── security.py         # Secret scrubbing logic
+│   └── token_counter.py    # Tiktoken batching
+├── submission_screenshots/ # Evidence for assignment
+├── api.py                  # FastAPI headless endpoint
+├── app.py                  # Streamlit dashboard entrypoint
+├── requirements.txt        # Dependency definitions
+├── .gitignore              # Excludes secrets/venv/caches
+└── README.md               # Documentation
 
 ---
 
