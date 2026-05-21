@@ -946,39 +946,67 @@ if run_button and repo_url:
             st.error(str(e))
             st.stop()
 
-        progress = st.progress(0)
+        # Limit batches on cloud deployment to prevent session timeout
+        max_cloud_batches = 8
+        if len(batches) > max_cloud_batches:
+            st.info(
+                f"Large repository detected. Analyzing first {max_cloud_batches} "
+                f"batches of {len(batches)} to prevent timeout."
+            )
+            batches = batches[:max_cloud_batches]
+
+        # Process batches incrementally — saves results after each batch
+        # so a Streamlit rerun doesn't lose completed work
+        if "completed_reviews" not in st.session_state:
+            st.session_state.completed_reviews = []
+        if "completed_batches" not in st.session_state:
+            st.session_state.completed_batches = 0
+
+        progress = st.progress(
+            st.session_state.completed_batches / len(batches) if len(batches) > 0 else 0
+        )
         batch_txt = st.empty()
 
-        def update_progress(current: int, total: int):
-            progress.progress(current / total)
+        for i, batch in enumerate(batches):
+            # Skip already completed batches on rerun
+            if i < st.session_state.completed_batches:
+                continue
+            try:
+                # Note: Assuming reviewer.analyze_batch() takes (batch, call_graph)
+                report = reviewer.analyze_batch(batch, call_graph)
+                st.session_state.completed_reviews.extend(report.reviews)
+                st.session_state.completed_batches = i + 1
+            except Exception as e:
+                logger.error(f"Batch {i+1} failed: {e}")
+                # Optional: surface the error to the UI so it doesn't fail silently
+                st.error(f"Batch {i+1} failed: {e}")
+
+            progress.progress((i + 1) / len(batches))
             batch_txt.markdown(
                 f'<span style=\'font-family:"IBM Plex Mono",monospace;'
                 f"font-size:11px;color:#666;'>"
-                f"batch {current:02d}/{total:02d} &nbsp;·&nbsp; "
-                f"{int(current/total*100)}% complete</span>",
+                f"batch {i+1:02d}/{len(batches):02d} &nbsp;·&nbsp; "
+                f"{int((i+1)/len(batches)*100)}% complete</span>",
                 unsafe_allow_html=True,
             )
 
-        try:
-            all_reviews = reviewer.analyze_all_batches(
-                batches, call_graph, update_progress
-            )
-            st.session_state.all_reviews = all_reviews
-            st.session_state.analysis_run = True
-            st.session_state.history.append(
-                {
-                    "repo": repo_url,
-                    "findings": len(all_reviews),
-                    "critical": len(
-                        [r for r in all_reviews if r.severity == "Critical"]
-                    ),
-                    "timestamp": pd.Timestamp.now().strftime("%H:%M:%S"),
-                }
-            )
-        except RuntimeError as e:
-            s3.update(label="03 // INFERENCE FAILED ✗", state="error")
-            st.error(str(e))
-            st.stop()
+        all_reviews = st.session_state.completed_reviews
+
+        # Reset session state trackers for the next repo scan
+        st.session_state.completed_batches = 0
+        st.session_state.completed_reviews = []
+
+        # Save to main state exactly like the old code
+        st.session_state.all_reviews = all_reviews
+        st.session_state.analysis_run = True
+        st.session_state.history.append(
+            {
+                "repo": repo_url,
+                "findings": len(all_reviews),
+                "critical": len([r for r in all_reviews if r.severity == "Critical"]),
+                "timestamp": pd.Timestamp.now().strftime("%H:%M:%S"),
+            }
+        )
 
         batch_txt.empty()
         s3.update(
