@@ -1332,7 +1332,7 @@ with right:
 
     # ── Bonus: GitHub PR Integration ───────────────────
     st.divider()
-    st.subheader("🐙 Post to GitHub Pull Request (Bonus Feature)")
+    st.subheader("🐙 Post to GitHub Pull Request")
     st.caption(
         "Post the top findings directly as inline review comments on a live GitHub PR."
     )
