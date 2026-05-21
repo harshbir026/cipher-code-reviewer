@@ -207,9 +207,9 @@ The agent was tested against a controlled golden dataset of Python files with kn
 
 ## Data Sources Used for Testing
 
-- psf/requests — https://github.com/psf/requests
-- pallets/flask — https://github.com/pallets/flask
-- tiangolo/fastapi — https://github.com/tiangolo/fastapi
+- psf/requests —https://github.com/kennethreitz/records
+- pallets/flask — https://github.com/mitsuhiko/pluginbase
+- tiangolo/fastapi — https://github.com/realpython/codetiming
 
 ---
 
