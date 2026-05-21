@@ -17,6 +17,8 @@ confidence-rated review comments via a Streamlit dashboard.
 ---
 
 ## Architecture
+
+```
 ┌─────────────────────────────────────────────────────────┐
 │                    CIPHER Pipeline                       │
 └─────────────────────────────────────────────────────────┘
@@ -60,6 +62,7 @@ confidence-rated review comments via a Streamlit dashboard.
 ┌─────────────────┐     filters, metrics, export, PR comments
 │  Streamlit UI   │
 └─────────────────┘
+```
 
 ---
 
