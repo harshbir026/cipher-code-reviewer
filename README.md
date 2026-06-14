@@ -204,6 +204,14 @@ The agent was tested against a controlled golden dataset of Python files with kn
 **Recall: 100% on golden dataset** (verified locally, 13.40s runtime)
 
 ---
+## Performance Metrics
+
+| Metric | Result |
+|--------|--------|
+| Recall on golden vulnerability dataset | **100%** (50 test cases) |
+| JSON parse failures | **0** (Pydantic v2 model_validator) |
+| Avg scan time per file | **< 5s** |
+| Pipeline crash rate on 3 test repos | **0%** |
 
 ## Data Sources Used for Testing
 
