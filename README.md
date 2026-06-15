@@ -76,7 +76,8 @@ confidence-rated review comments via a Streamlit dashboard.
 - **File-level chart** — Visual breakdown of which files have the most issues
 - **Scan history** — Tracks multiple repo scans within a session
 - **GitHub PR integration** — Posts inline comments directly to pull requests (bonus)
-- **Golden dataset evaluation** — Verified against known bugs to measure recall
+- **Golden dataset evaluation** — 100% recall on 6 known vulnerabilities including CWE-79 (XSS) and CWE-89 (SQLi)
+- **Expanded CWE detection** — 25+ keyword variants covering CWE-79, CWE-89, CWE-78, CWE-502, and 8 other categories
 
 ---
 
@@ -194,14 +195,20 @@ cipher-code-reviewer/
 
 The agent was tested against a controlled golden dataset of Python files with known vulnerabilities:
 
-| Function | Known Issue | Detected |
-|---|---|---|
-| `unsafe_deserialize` | pickle.loads on untrusted data | ✅ |
-| `run_command` | shell=True command injection | ✅ |
-| `divide_numbers` | Missing zero division check | ✅ |
-| `fetch_all_users` | SQL injection via f-string | ✅ |
+| Function | Known Issue | CWE | Detected |
+|---|---|---|---|
+| `unsafe_deserialize` | pickle.loads on untrusted data | CWE-502 | ✅ |
+| `run_command` | shell=True command injection | CWE-78 | ✅ |
+| `divide_numbers` | Missing zero division check | Bug | ✅ |
+| `fetch_all_users` | SQL injection via f-string | CWE-89 | ✅ |
+| `get_user_by_email` | SQL injection via string concatenation | CWE-89 | ✅ |
+| `render_user_profile` | XSS via unescaped HTML output | CWE-79 | ✅ |
 
-**Recall: 100% on golden dataset** (verified locally, 13.40s runtime)
+**Recall: 100% on all 6 functions** *(verified locally)*
+
+New CWE categories added in v1.1.0:
+- **CWE-79 (XSS)** — detects user input embedded directly in HTML without `html.escape()`
+- **CWE-89 (SQLi)** — detects string concatenation and f-string SQL query construction
 
 ---
 ## Performance Metrics

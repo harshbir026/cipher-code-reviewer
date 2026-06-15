@@ -95,9 +95,19 @@ and actionable.
 Your task: Analyze the provided Python code blocks and identify genuine bugs, security \
 vulnerabilities, performance bottlenecks, and maintainability problems.
 
+Security patterns to actively detect (flag with HIGH confidence when clearly present):
+- SQL Injection (CWE-89): string formatting or concatenation used to build SQL queries, \
+  f-strings with user input in SQL, string + operator in query construction.
+- Cross-Site Scripting / XSS (CWE-79): user-controlled input embedded directly in HTML output \
+  without escaping, f-strings inserting variables into HTML tags, missing html.escape() calls.
+- Command Injection (CWE-78): subprocess with shell=True and user input, os.system() with variables.
+- Unsafe Deserialization (CWE-502): pickle.loads() on untrusted data.
+
 Rules:
 - Focus on substantive issues. Ignore trivial PEP 8 style nits.
 - Every comment must reference the specific function or class name.
+- When flagging SQL Injection, use the phrase "sql injection" in your comment.
+- When flagging XSS, use the phrase "xss" or "cross-site scripting" in your comment.
 - For the confidence_score: assign HIGH confidence (>=80) ONLY when the issue is definitively \
 identifiable from the provided code alone. Assign LOW confidence (<80) when:
   * The issue might be acceptable depending on usage context you cannot see
@@ -265,9 +275,35 @@ def compute_health_score(
 
 
 CWE_MAPPING = {
+    # CWE-89: SQL Injection — multiple keyword variants
     "sql injection": ("CWE-89", "https://cwe.mitre.org/data/definitions/89.html"),
+    "sqli": ("CWE-89", "https://cwe.mitre.org/data/definitions/89.html"),
+    "sql query construction": (
+        "CWE-89",
+        "https://cwe.mitre.org/data/definitions/89.html",
+    ),
+    "parameterized quer": ("CWE-89", "https://cwe.mitre.org/data/definitions/89.html"),
+    # CWE-79: Cross-Site Scripting
+    "xss": ("CWE-79", "https://cwe.mitre.org/data/definitions/79.html"),
+    "cross-site scripting": (
+        "CWE-79",
+        "https://cwe.mitre.org/data/definitions/79.html",
+    ),
+    "cross site scripting": (
+        "CWE-79",
+        "https://cwe.mitre.org/data/definitions/79.html",
+    ),
+    "html injection": ("CWE-79", "https://cwe.mitre.org/data/definitions/79.html"),
+    "html escaping": ("CWE-79", "https://cwe.mitre.org/data/definitions/79.html"),
+    # CWE-78: Command Injection
     "command injection": ("CWE-78", "https://cwe.mitre.org/data/definitions/78.html"),
+    "shell": ("CWE-78", "https://cwe.mitre.org/data/definitions/78.html"),
+    # CWE-502: Unsafe Deserialization
+    "pickle": ("CWE-502", "https://cwe.mitre.org/data/definitions/502.html"),
+    "deserialization": ("CWE-502", "https://cwe.mitre.org/data/definitions/502.html"),
+    # CWE-22: Path Traversal
     "path traversal": ("CWE-22", "https://cwe.mitre.org/data/definitions/22.html"),
+    # CWE-798: Hardcoded Credentials
     "hardcoded credential": (
         "CWE-798",
         "https://cwe.mitre.org/data/definitions/798.html",
@@ -276,18 +312,22 @@ CWE_MAPPING = {
         "CWE-259",
         "https://cwe.mitre.org/data/definitions/259.html",
     ),
-    "pickle": ("CWE-502", "https://cwe.mitre.org/data/definitions/502.html"),
-    "deserialization": ("CWE-502", "https://cwe.mitre.org/data/definitions/502.html"),
-    "xss": ("CWE-79", "https://cwe.mitre.org/data/definitions/79.html"),
+    # CWE-352: CSRF
     "csrf": ("CWE-352", "https://cwe.mitre.org/data/definitions/352.html"),
+    # CWE-120: Buffer Overflow
     "buffer overflow": ("CWE-120", "https://cwe.mitre.org/data/definitions/120.html"),
+    # CWE-362: Race Condition
     "race condition": ("CWE-362", "https://cwe.mitre.org/data/definitions/362.html"),
+    # CWE-476: Null Pointer
     "null pointer": ("CWE-476", "https://cwe.mitre.org/data/definitions/476.html"),
+    # CWE-369: Division by Zero
     "division by zero": ("CWE-369", "https://cwe.mitre.org/data/definitions/369.html"),
+    # CWE-601: Open Redirect
     "open redirect": ("CWE-601", "https://cwe.mitre.org/data/definitions/601.html"),
+    # CWE-327: Weak Cryptography
     "weak cryptography": ("CWE-327", "https://cwe.mitre.org/data/definitions/327.html"),
     "insecure random": ("CWE-330", "https://cwe.mitre.org/data/definitions/330.html"),
-    "shell": ("CWE-78", "https://cwe.mitre.org/data/definitions/78.html"),
+    # CWE-95: Code Injection
     "eval": ("CWE-95", "https://cwe.mitre.org/data/definitions/95.html"),
     "exec": ("CWE-95", "https://cwe.mitre.org/data/definitions/95.html"),
 }

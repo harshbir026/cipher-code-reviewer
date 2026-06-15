@@ -18,10 +18,12 @@ GOLDEN_FILE = os.path.join(
 )
 
 EXPECTED_ISSUES = {
-    "unsafe_deserialize": "Security",
-    "run_command": "Security",
-    "divide_numbers": "Bug",
-    "fetch_all_users": "Security",
+    "unsafe_deserialize": "Security",  # CWE-502
+    "run_command": "Security",  # CWE-78
+    "divide_numbers": "Bug",  # Division by zero
+    "fetch_all_users": "Security",  # CWE-89 (original)
+    "get_user_by_email": "Security",  # CWE-89 (new)
+    "render_user_profile": "Security",  # CWE-79 (new)
 }
 
 
