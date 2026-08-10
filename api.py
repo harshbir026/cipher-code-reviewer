@@ -39,6 +39,25 @@ class ReviewResponse(BaseModel):
     findings: list[dict]
 
 
+class RepoInfoResponse(BaseModel):
+    language: str | None = None
+    stars: int = 0
+    size_kb: int = 0
+    default_branch: str = "main"
+    description: str = ""
+
+
+@app.get("/repo-info", response_model=RepoInfoResponse)
+def repo_info(repo_url: str):
+    try:
+        ingestor = RepositoryIngestor(repo_url)
+        ingestor.validate_url()
+        meta = ingestor.check_repo_size()
+    except (ValueError, RuntimeError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return RepoInfoResponse(**meta) if meta else RepoInfoResponse()
+
+
 @app.get("/health")
 def health_check():
     return {"status": "operational", "version": "1.0.0"}
