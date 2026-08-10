@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from openai import APIError, OpenAI, RateLimitError
 from pydantic import BaseModel, Field, model_validator
 
+from pipeline.languages import CODE_FENCE
 from utils.security import scrub_secrets
 
 load_dotenv()
@@ -89,19 +90,24 @@ class CodeReviewReport(BaseModel):
 # ─────────────────────────────────────────────
 
 SYSTEM_PROMPT = """You are an elite, highly critical AI software architect and security auditor \
-with 20 years of experience reviewing production Python code. Your reviews are surgical, specific, \
-and actionable.
+with 20 years of experience reviewing production code across multiple languages. Your reviews \
+are surgical, specific, and actionable.
 
-Your task: Analyze the provided Python code blocks and identify genuine bugs, security \
-vulnerabilities, performance bottlenecks, and maintainability problems.
+Each code block's header indicates its language — tailor your analysis to that language's \
+idioms and vulnerability patterns.
 
 Security patterns to actively detect (flag with HIGH confidence when clearly present):
-- SQL Injection (CWE-89): string formatting or concatenation used to build SQL queries, \
-  f-strings with user input in SQL, string + operator in query construction.
-- Cross-Site Scripting / XSS (CWE-79): user-controlled input embedded directly in HTML output \
-  without escaping, f-strings inserting variables into HTML tags, missing html.escape() calls.
-- Command Injection (CWE-78): subprocess with shell=True and user input, os.system() with variables.
-- Unsafe Deserialization (CWE-502): pickle.loads() on untrusted data.
+- SQL Injection (CWE-89): string concatenation/f-strings/template literals building SQL queries;
+  raw query methods (e.g. Sequelize/knex .raw(), psycopg2 string formatting) with unsanitized input.
+- Cross-Site Scripting / XSS (CWE-79): unescaped user input in HTML output — Python templates
+  without autoescape, or JS/TS `innerHTML`, `dangerouslySetInnerHTML`, `document.write` with
+  unsanitized input.
+- Command Injection (CWE-78): subprocess/os.system with shell=True and variables (Python);
+  child_process.exec/execSync with unsanitized input (JS/TS).
+- Unsafe Deserialization (CWE-502): pickle.loads on untrusted data (Python); eval() on JSON,
+  vm.runInContext, or unsafe JSON.parse reviver misuse (JS/TS).
+- Prototype Pollution (CWE-1321, JS/TS only): unguarded merge/assign of user-controlled objects
+  into another object (e.g. lodash merge, `obj[key] = value` with attacker-controlled key).
 
 Rules:
 - Focus on substantive issues. Ignore trivial PEP 8 style nits.
@@ -138,18 +144,16 @@ class LLMReviewer:
             )
         self.client = OpenAI(api_key=api_key)
 
-    def _build_prompt(
-        self,
-        code_blocks: list[dict[str, Any]],
-        call_graph: dict[str, list[str]] = None,
-    ) -> str:
-        """Assembles the user prompt from a batch of code blocks."""
+    def _build_prompt(self, code_blocks, call_graph=None):
         prompt_context = ""
         for block in code_blocks:
             clean_code = scrub_secrets(block["code"])
+            language = block.get("language", "python")
+            fence = CODE_FENCE.get(language, "text")
             prompt_context += (
                 f"\n---\n"
                 f"File: `{block['file_path']}` | "
+                f"Language: {language} | "
                 f"Line: {block['line_number']} | "
                 f"Type: {block['type']} | "
                 f"Name: `{block['name']}`\n"
@@ -165,7 +169,7 @@ class LLMReviewer:
                     prompt_context += f"Called by: {', '.join(callers[:5])}\n"
                 if callees:
                     prompt_context += f"Calls: {', '.join(callees[:10])}\n"
-            prompt_context += f"```python\n{clean_code}\n```\n"
+            prompt_context += f"```{fence}\n{clean_code}\n```\n"
         return prompt_context
 
     def analyze_batch(

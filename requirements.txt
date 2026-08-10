@@ -12,3 +12,5 @@ tiktoken==0.7.0
 httpx==0.28.1
 fastapi>=0.115.0
 uvicorn==0.30.1
+tree-sitter==0.21.3
+tree-sitter-languages==1.10.2

@@ -9,28 +9,10 @@ import logging
 import os
 from typing import Any
 
+from pipeline.languages import IGNORED_DIRS, MAX_CODE_LENGTH
+from pipeline.ts_parser import TreeSitterParser
+
 logger = logging.getLogger(__name__)
-
-# Directories to skip during file traversal
-IGNORED_DIRS = {
-    ".git",
-    ".venv",
-    "venv",
-    "env",
-    "__pycache__",
-    "node_modules",
-    ".tox",
-    "dist",
-    "build",
-    ".eggs",
-    "*.egg-info",
-    ".pytest_cache",
-    ".mypy_cache",
-}
-
-# Maximum source code length per block sent to LLM (characters)
-# Prevents single massive functions from blowing the token budget
-MAX_CODE_LENGTH = 8000
 
 
 class ASTParser:
@@ -118,6 +100,7 @@ class ASTParser:
                                 "line_number": node.lineno,
                                 "code": code_segment,
                                 "docstring": docstring,
+                                "language": "python",
                             }
                         )
 
@@ -179,3 +162,11 @@ def build_call_graph(repo_path: str) -> dict[str, list[str]]:
                 continue
 
     return call_graph
+
+
+def extract_all_code_blocks(repo_path: str) -> list[dict[str, Any]]:
+    """Extracts code blocks across all supported languages."""
+
+    blocks = ASTParser.extract_code_blocks(repo_path)
+    blocks.extend(TreeSitterParser.extract_code_blocks(repo_path))
+    return blocks

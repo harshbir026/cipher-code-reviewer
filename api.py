@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from pipeline.ingestion import RepositoryIngestor
-from pipeline.parser import ASTParser, build_call_graph
+from pipeline.parser import build_call_graph, extract_all_code_blocks
 from pipeline.reviewer import LLMReviewer, compute_health_score
 from utils.token_counter import batch_code_blocks
 
@@ -52,7 +52,7 @@ def review_repository(request: ReviewRequest):
     except (ValueError, RuntimeError) as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    code_blocks = ASTParser.extract_code_blocks(temp_dir.name)
+    code_blocks = extract_all_code_blocks(temp_dir.name)
     call_graph = build_call_graph(temp_dir.name)
     temp_dir.cleanup()
 
